@@ -42,9 +42,9 @@ const Oopup = ({ isOpen, onClose, onSubmit }) => {
 
     try {
       console.log("API Response:", requestData);
-      Object.keys(requestData).forEach(key => {
+      Object.keys(requestData).forEach((key) => {
         if (Array.isArray(requestData[key])) {
-          requestData[key] = requestData[key].filter(item => item !== '');
+          requestData[key] = requestData[key].filter((item) => item !== "");
         }
       });
       const response = await axios.post(
@@ -57,11 +57,12 @@ const Oopup = ({ isOpen, onClose, onSubmit }) => {
         }
       );
       console.log("API Response:", response.data);
-      onSubmit(response.data); 
-        } catch (error) {
+      onSubmit(response.data);
+    } catch (error) {
       console.error("Error submitting form:", error);
       // Handle error state or display error message
     }
+    onClose()
   };
   const handleRemoveDepartment = (index) => {
     const updatedDepartments = departments.filter((_, i) => i !== index);
@@ -290,9 +291,46 @@ const DriverMap = () => {
     // Implement your form submission logic here
   };
 
-  const handleMarkDelivered = () => {
-    console.log("Mark as delivered handler called.");
-    // Implement your logic to mark a delivery as delivered here
+  const handleMarkDelivered = async (requestId, carId) => {
+    console.log(requestId);
+
+    console.log(carId);
+    const newStatus = "delivered";
+    try {
+      const token = localStorage.getItem("token"); // Ensure the token is correctly fetched
+      const response = await axios.put(
+        `https://musifuk-be.vercel.app/api/update-delivery-status/${requestId}/${carId}`,
+        { newStatus },
+        {
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Status updated successfully:", response.data);
+      const markPatientsResponse = await axios.patch(
+        `https://musifuk-be.vercel.app/api/ambulance/request/markPatientsAsDelivered`,
+        { requestId },
+        {
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+  
+      console.log("Patients marked as delivered successfully:", markPatientsResponse.data);
+      setrequestcar(null)
+      setNewAssignment();
+
+    } catch (error) {
+      console.error(
+        "Error updating status:",
+        error.response ? error.response.data : error.message
+      );
+    }
   };
   useEffect(() => {
     const pusher = new Pusher("ea80cde6e77453dc1bf5", {
@@ -305,6 +343,9 @@ const DriverMap = () => {
       channel.bind("newassignment", (data) => {
         console.log("newassignment:", data);
         setNewAssignment(data);
+      //  if(!requestcar){
+          setrequestcar([data.request])
+       // }
         const newMarker = {
           id: data.assignmentId,
           position: data.request.pickupLocation.coordinates.coordinates, // Adjust according to your data structure
@@ -321,7 +362,7 @@ const DriverMap = () => {
             State: ${data.request.state}<br />
           `,
         };
-        setMarkers((prevMarkers) => [...prevMarkers, newMarker]);
+        setMarkers((prevMarkers) => [newMarker]);
       });
 
       channel.bind("pusher:subscription_succeeded", () => {
@@ -330,13 +371,19 @@ const DriverMap = () => {
       return () => {};
     }
   }, [driverData]);
+  const requestId = requestcar ? requestcar[0]?._id : newAssignment?._id;
+  const carId = driverData?.cars?._id;
+  const isButtonDisabled = !requestId || !carId;
 
   return (
     <div style={{ height: "95vh", width: "100%" }}>
       <Oopup
         isOpen={isOpen}
         onClose={togglePopup}
-        onSubmit={(x) => console.log("Popup submitted",x)}
+        onSubmit={(x) => {
+          setHospitalData(x);
+          setrequestcar(null);
+        }}
       />
       {driverData && (
         <MapContainer
@@ -359,8 +406,8 @@ const DriverMap = () => {
               </Popup>
             </Marker>
           )}
-
-          {markers.map((marker) => (
+          {newAssignment && (
+          markers.map((marker) => (
             <Marker key={marker.id} position={marker.position}>
               <Popup>
                 <div>
@@ -382,8 +429,9 @@ const DriverMap = () => {
                 </div>
               </Popup>
             </Marker>
-          ))}
+          ))
 
+          )}
           {requestcar &&
             requestcar.length > 0 &&
             requestcar.map((marker) => (
@@ -408,6 +456,47 @@ const DriverMap = () => {
                 </Popup>
               </Marker>
             ))}
+
+          {hospitalData &&
+            hospitalData.length > 0 &&
+            hospitalData.map((hospital) => (
+              <Marker
+                key={hospital._id}
+                position={hospital.location.coordinates}
+              >
+                <Popup>
+                  <div>
+                    <h3>{hospital.name}</h3>
+                    <p>{hospital.address}</p>
+                    <p>Distance: {hospital.distance.toFixed(2)} km</p>
+                    <h4>Departments:</h4>
+                    <ul>
+                      {hospital.departments.map((dept, idx) => (
+                        <li key={idx}>
+                          {dept.name} - Min Beds: {dept.minBeds}
+                        </li>
+                      ))}
+                    </ul>
+                    <h4>Medical Equipment:</h4>
+                    <ul>
+                      {hospital.medicalEquipment.map((eq, idx) => (
+                        <li key={idx}>
+                          {eq.name} - Quantity: {eq.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                    <h4>Serums and Vaccines:</h4>
+                    <ul>
+                      {hospital.serumsAndVaccines.map((sv, idx) => (
+                        <li key={idx}>
+                          {sv.name} - Quantity: {sv.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
         </MapContainer>
       )}
       <div style={{ marginTop: "10px", textAlign: "center" }}>
@@ -428,7 +517,11 @@ const DriverMap = () => {
         </button>
 
         <button
-          onClick={handleMarkDelivered}
+          onClick={() =>
+            handleMarkDelivered(requestId, carId)
+          }
+          disabled={isButtonDisabled}
+
           style={{
             padding: "10px 20px",
             backgroundColor: "#f44336",
