@@ -57,8 +57,8 @@ const Oopup = ({ isOpen, onClose, onSubmit }) => {
         }
       );
       console.log("API Response:", response.data);
-      onSubmit(); // Close the popup or handle success
-    } catch (error) {
+      onSubmit(response.data); 
+        } catch (error) {
       console.error("Error submitting form:", error);
       // Handle error state or display error message
     }
@@ -180,6 +180,7 @@ const Oopup = ({ isOpen, onClose, onSubmit }) => {
 };
 const DriverMap = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hospitalData, setHospitalData] = useState([]);
 
   const togglePopup = () => {
     console.log(isOpen);
@@ -335,12 +336,7 @@ const DriverMap = () => {
       <Oopup
         isOpen={isOpen}
         onClose={togglePopup}
-        content={
-          <>
-            <h2>Popu Content</h2>
-            <p>This is a popup window example.</p>
-          </>
-        }
+        onSubmit={(x) => console.log("Popup submitted",x)}
       />
       {driverData && (
         <MapContainer
