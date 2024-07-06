@@ -24,6 +24,23 @@ const Oopup = ({ isOpen, onClose, onSubmit }) => {
   const [departments, setDepartments] = useState([{ name: "", minBeds: "" }]);
   const [medicalEquipment, setMedicalEquipment] = useState([]);
   const [serumsAndVaccines, setSerumsAndVaccines] = useState([]);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setPickupLocation(`${latitude}, ${longitude}`);
+        },
+        (error) => {
+          console.error("Error getting user location:", error);
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  }, []);
+
   const handleAddDepartment = () => {
     setDepartments([...departments, { name: "", minBeds: "" }]);
   };
